@@ -12,7 +12,7 @@ from colorama import Fore, Style, init
 init()  # Required for Windows support
 
 # Load BTC addresses from file
-def load_btc_addresses(filename="BTC_address.txt"):
+def load_btc_addresses(filename="lists.txt"):
     if not os.path.exists(filename):
         print(f"Error: {filename} not found.")
         sys.exit(1)
@@ -21,8 +21,9 @@ def load_btc_addresses(filename="BTC_address.txt"):
 
 TARGET_BTC_ADDRESSES = load_btc_addresses()
 
-PRIVATE_KEY_MIN = 0x4000000000000000000000000000000000
-PRIVATE_KEY_MAX = 0x7fffffffffffffffffffffffffffffffff
+PRIVATE_KEY_MIN = 0x0000000000000000000000000000000000000000000000000000000000000001
+PRIVATE_KEY_MAX = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364140
+
 found = Value('b', False)  # Flag to indicate when a match is found
 lock = Lock()  # Lock for synchronized printing
 BATCH_SIZE = 100000 if cpu_count() <= 2 else 10000  # Generate multiple keys at once for efficiency
@@ -100,9 +101,7 @@ def search_key(keys_checked, num_workers):
     sub_range_max = min(sub_range_min + SUB_RANGE_SIZE, PRIVATE_KEY_MAX)
     with lock:
          
-        short_min = f"{hex(sub_range_min)[2:4].upper()}{hex(sub_range_min)[-6:].upper()}"
-        short_max = f"{hex(sub_range_max)[2:4].upper()}{hex(sub_range_max)[-6:].upper()}"
-        print(f"{Fore.YELLOW}Random Sub-Range: {short_min}-{short_max} (Size: {sub_range_max - sub_range_min} keys){Style.RESET_ALL}\n")
+        print(f"{Fore.YELLOW}Random Sub-Range: {sub_range_min:X}-{sub_range_max:X} (Size: {sub_range_max - sub_range_min + 1} keys){Style.RESET_ALL}\n")
 
     while not found.value:
         keys = [random.randint(sub_range_min, sub_range_max) for _ in range(BATCH_SIZE)]
@@ -188,9 +187,7 @@ if __name__ == "__main__":
 
         # Print full range and sub-range details
     full_range_size = PRIVATE_KEY_MAX - PRIVATE_KEY_MIN + 1
-    short_min = f"{hex(PRIVATE_KEY_MIN)[2:4].upper()}{hex(PRIVATE_KEY_MIN)[-6:].upper()}"
-    short_max = f"{hex(PRIVATE_KEY_MAX)[2:4].upper()}{hex(PRIVATE_KEY_MAX)[-6:].upper()}"
-    print(f"\nCurrent Full Range: {short_min} to {short_max} (2^127 keys, 170 undecillion keys)")
+    print(f"\nCurrent Full Range: {PRIVATE_KEY_MIN:X} to {PRIVATE_KEY_MAX:X} (~2^256 keys)")
     print(f"Sub-Range Size: 2^64 keys, 18.4 quintillion keys\n")
 
     print_process = Process(target=print_keys_checked, args=(keys_checked, start_time))
