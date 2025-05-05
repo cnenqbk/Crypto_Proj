@@ -130,7 +130,7 @@ def search_key(args):
                                 if balance is not None:
                                     print(f"Balance: {balance:.8f} BTC")
 
-                                with open("found_key_69.txt", "w") as f:
+                                with open("found_key_71.txt", "w") as f:
                                     f.write(f"Worker: {worker_id}\n")
                                     f.write(f"Keys Checked: {keys_checked.value:,}\n")
                                     f.write(f"Private Key (Hex): {hex(private_key)}\n")
