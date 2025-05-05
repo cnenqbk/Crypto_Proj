@@ -13,11 +13,11 @@ from colorama import Fore, Style, init
 init()
 
 # Target Bitcoin address
-TARGET_BTC_ADDRESS = "19vkiEajfhuZ8bs8Zu2jgmC6oqZbWqhxhG"
+TARGET_BTC_ADDRESS = "1PWo3JeB9jrGwfHDNpdGK54CRas7fsVzXU"
 
 # Private key range
-PRIVATE_KEY_MIN = 0x100000000000000000
-PRIVATE_KEY_MAX = 0x1FFFFFFFFFFFFFFFFF
+PRIVATE_KEY_MIN = 0x400000000000000000
+PRIVATE_KEY_MAX = 0x7FFFFFFFFFFFFFFFFF
 
 # Config
 SUB_RANGE_SIZE = 2**20  # 1,048,576 keys per sub-range
@@ -177,8 +177,8 @@ if __name__ == "__main__":
         print(f"\nInvalid input. Please enter a number between 1 and {physical_cores}.")
         sys.exit(1)
 
-    print(f"{Fore.RED}\nTarget Puzzle 69: 19vkiEajfhuZ8bs8Zu2jgmC6oqZbWqhxhG{Style.RESET_ALL}")
-    print(f"Total Range: {hex(PRIVATE_KEY_MIN)[2:].upper()} to {hex(PRIVATE_KEY_MAX)[2:].upper()} (2^60 keys)")
+    print(f"{Fore.RED}\nTarget Puzzle 71: 1PWo3JeB9jrGwfHDNpdGK54CRas7fsVzXU{Style.RESET_ALL}")
+    print(f"Total Range: {hex(PRIVATE_KEY_MIN)[2:].upper()} to {hex(PRIVATE_KEY_MAX)[2:].upper()} (2^62 keys)")
     print(f"Sub-Range Size: 2^20 keys\n")
 
     start_time = time.time()
