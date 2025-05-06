@@ -83,12 +83,12 @@ def print_keys_checked(keys_checked, start_time):
             sys.stdout.flush()
 
 def search_key(args):
-    keys_checked, worker_id = args
+    keys_checked, worker_id, RANGE_START, RANGE_END = args
     local_count = 0
 
     while not found.value:
-        sub_range_min = random.randint(PRIVATE_KEY_MIN, PRIVATE_KEY_MAX - SUB_RANGE_SIZE + 1)
-        sub_range_max = min(sub_range_min + SUB_RANGE_SIZE - 1, PRIVATE_KEY_MAX)
+        sub_range_min = random.randint(RANGE_START, RANGE_END - SUB_RANGE_SIZE + 1)
+        sub_range_max = min(sub_range_min + SUB_RANGE_SIZE - 1, RANGE_END)
 
         short_min = hex(sub_range_min)[2:].upper().zfill(18)[:8]
         short_max = hex(sub_range_max)[2:].upper().zfill(18)[:8]
@@ -177,16 +177,37 @@ if __name__ == "__main__":
         print(f"\nInvalid input. Please enter a number between 1 and {physical_cores}.")
         sys.exit(1)
 
-    print(f"{Fore.RED}\nTarget Puzzle 71: 1PWo3JeB9jrGwfHDNpdGK54CRas7fsVzXU{Style.RESET_ALL}")
-    print(f"Total Range: {hex(PRIVATE_KEY_MIN)[2:].upper()} to {hex(PRIVATE_KEY_MAX)[2:].upper()} (2^62 keys)")
-    print(f"Sub-Range Size: 2^20 keys\n")
+    print(f"{Fore.LIGHTWHITE_EX}\nRange Selection:{Style.RESET_ALL}")
+    print(f"{Fore.LIGHTWHITE_EX}1. Start (0% to 33.33%){Style.RESET_ALL}")
+    print(f"{Fore.LIGHTWHITE_EX}2. Middle (33.33% to 66.67%){Style.RESET_ALL}")
+    print(f"{Fore.LIGHTWHITE_EX}3. End (66.67% to 100%){Style.RESET_ALL}")
+    choice = input("Choose: ").strip()
+
+    if choice == "1":
+        RANGE_START = PRIVATE_KEY_MIN
+        RANGE_END = PRIVATE_KEY_MIN + (PRIVATE_KEY_MAX - PRIVATE_KEY_MIN) // 3
+    elif choice == "2":
+        third = (PRIVATE_KEY_MAX - PRIVATE_KEY_MIN) // 3
+        RANGE_START = PRIVATE_KEY_MIN + third
+        RANGE_END = PRIVATE_KEY_MIN + 2 * third
+    elif choice == "3":
+        RANGE_START = PRIVATE_KEY_MIN + (PRIVATE_KEY_MAX - PRIVATE_KEY_MIN) * 2 // 3
+        RANGE_END = PRIVATE_KEY_MAX
+    else:
+        print("Invalid selection. Defaulting to full range (0% to 100%).")
+        RANGE_START = PRIVATE_KEY_MIN
+        RANGE_END = PRIVATE_KEY_MAX
+
+    print(f"{Fore.RED}\nTarget Puzzle 71: {TARGET_BTC_ADDRESS}{Style.RESET_ALL}")
+    print(f"Search Range: {hex(RANGE_START)[2:].upper()} to {hex(RANGE_END)[2:].upper()}")
+    print(f"Sub-Range Size: 2^20 keys")
 
     start_time = time.time()
     print_process = Process(target=print_keys_checked, args=(keys_checked, start_time))
     print_process.start()
 
     with Pool(num_workers) as p:
-        p.map(search_key, [(keys_checked, i) for i in range(num_workers)])
+        p.map(search_key, [(keys_checked, i, RANGE_START, RANGE_END) for i in range(num_workers)])
 
     print_process.terminate()
     print_process.join()
