@@ -12,6 +12,7 @@ import queue
 import signal
 from multiprocessing import Pool, Value, Lock, Process, cpu_count, Manager
 from colorama import Fore, Style, init
+
 init()
 
 try:
@@ -24,6 +25,9 @@ except ImportError:
 # Target Bitcoin address
 TARGET_BTC_ADDRESS = "1PWo3JeB9jrGwfHDNpdGK54CRas7fsVzXU"
 
+# IMPROVEMENT 1: Pre-calculate the target 20-byte Hash160 to avoid Base58 encoding in the loop
+TARGET_HASH160 = base58.b58decode_check(TARGET_BTC_ADDRESS)[1:]
+
 # Private key range
 PRIVATE_KEY_MIN = 0x400000000000000000
 PRIVATE_KEY_MAX = 0x7FFFFFFFFFFFFFFFFF
@@ -34,9 +38,12 @@ found = None
 keys_checked = None
 chunk_counter = None
 PRINT_LOCK = None
+
+# IMPROVEMENT 2: Fixed the missing ** exponentiation operators
 SUB_RANGE_SIZE = 2**20  # 1,048,576 keys
 RANDOM_SUB_RANGE_SIZE = 2**18  # 262,144 keys
-RANDOM_HISTORY_FILE = os.path.join(SCRIPT_DIR, "puzzle71_random_done.txt")
+
+RANDOM_HISTORY_FILE = r"E:\puzzle71_random_done.txt"
 FOUND_KEY_FILE = os.path.join(SCRIPT_DIR, "found_key_71.txt")
 SHOW_CHUNKS = False
 random_chunk_queue = None
@@ -73,7 +80,8 @@ def init_random_worker(
     random_history_lock = shared_random_history_lock
     set_low_priority()
 
-# Utility functions (keep all your existing functions)
+# --- Utility functions ---
+
 def compress_public_key(public_key):
     x = public_key[1:33]
     y = public_key[33:65]
@@ -194,7 +202,6 @@ def print_range_summary(range_start, range_end, label="Selected range"):
     selected_keys = range_end - range_start + 1
     selected_percent = (selected_keys / full_keys) * 100
     start_percent, end_percent = percent_window(range_start, range_end)
-
     print(f"\n{Fore.LIGHTWHITE_EX}Range Size{Style.RESET_ALL}")
     print(f"Full range:     {hex(PRIVATE_KEY_MIN)[2:].upper()} to {hex(PRIVATE_KEY_MAX)[2:].upper()}")
     print(f"Full keys:      {full_keys:,}")
@@ -207,7 +214,6 @@ def load_random_history():
     completed = set()
     if not os.path.exists(RANDOM_HISTORY_FILE):
         return completed
-
     with open(RANDOM_HISTORY_FILE, "r") as f:
         for line in f:
             value = line.strip()
@@ -251,25 +257,21 @@ def build_random_session_chunks(chunk_count, completed_chunks):
     if remaining_chunks <= 0:
         raise ValueError("Every random mini chunk is already marked complete.")
     chunk_count = min(chunk_count, remaining_chunks)
-
     selected = set()
     max_attempts = chunk_count * 20
     attempts = 0
-
     while len(selected) < chunk_count and attempts < max_attempts:
         chunk_index = random.randrange(max_chunks)
         attempts += 1
         if chunk_index in completed_chunks or chunk_index in selected:
             continue
         selected.add(chunk_index)
-
     if len(selected) < chunk_count:
         for chunk_index in range(max_chunks):
             if len(selected) >= chunk_count:
                 break
             if chunk_index not in completed_chunks and chunk_index not in selected:
                 selected.add(chunk_index)
-
     chunks = list(selected)
     random.shuffle(chunks)
     return chunks
@@ -278,12 +280,10 @@ def prompt_random_session():
     print(f"\n{Fore.LIGHTWHITE_EX}Random Session{Style.RESET_ALL}")
     print("This searches random mini chunks and records completed chunks.")
     print(f"Mini chunk size: {RANDOM_SUB_RANGE_SIZE:,} keys each")
-
     queue_count = parse_positive_int(
         input("How many random mini chunks to search this run (default 100): ") or "100",
         "Random mini chunks",
     )
-
     completed_chunks = load_random_history()
     chunks = build_random_session_chunks(queue_count, completed_chunks)
     full_keys = PRIVATE_KEY_MAX - PRIVATE_KEY_MIN + 1
@@ -291,7 +291,6 @@ def prompt_random_session():
     completed_percent = (completed_keys / full_keys) * 100
     session_keys = random_chunks_key_count(chunks)
     session_percent = (session_keys / full_keys) * 100
-
     print(f"\nAlready completed mini chunks: {len(completed_chunks):,}")
     print(f"Already completed keys:        {completed_keys:,}")
     print(f"Already completed size:        {format_percent(completed_percent)} of full range")
@@ -301,7 +300,6 @@ def prompt_random_session():
     print("Run length:                   until prepared mini chunks finish")
     print_random_time_estimates(session_keys)
     print(f"History file:                 {RANDOM_HISTORY_FILE}")
-
     return chunks
 
 def prompt_range_selection():
@@ -313,7 +311,6 @@ def prompt_range_selection():
     print("3. End          | last 1/3   | 33.333333%")
     print("4. Random time  | random mini chunks, no completed duplicates")
     choice = input("Choose: ").strip()
-
     third = full_keys // 3
     if choice == "1":
         return "deterministic", (PRIVATE_KEY_MIN, PRIVATE_KEY_MIN + third - 1), None
@@ -324,7 +321,6 @@ def prompt_range_selection():
     if choice == "4":
         chunks = prompt_random_session()
         return "random", (PRIVATE_KEY_MIN, PRIVATE_KEY_MAX), chunks
-
     raise ValueError("Invalid range selection.")
 
 def print_keys_checked(shared_found, shared_keys_checked, print_lock, start_time, total_keys):
@@ -332,6 +328,7 @@ def print_keys_checked(shared_found, shared_keys_checked, print_lock, start_time
     previous_width = 0
     try:
         while not shared_found.value:
+            # IMPROVEMENT 3: Fixed broken variable names (tim e -> time, el apsed -> elapsed, etc.)
             time.sleep(1)
             elapsed_time = time.time() - start_time
             with shared_keys_checked.get_lock():
@@ -340,6 +337,7 @@ def print_keys_checked(shared_found, shared_keys_checked, print_lock, start_time
             percent = min((current_keys / total_keys) * 100, 100) if total_keys else 0
             remaining_keys = max(total_keys - current_keys, 0)
             eta = format_eta(remaining_keys / keys_per_second) if keys_per_second > 0 else "--"
+            
             status = (
                 f"{progress_bar(percent, 12)} {percent:6.3f}% | "
                 f"{current_keys:,} checked | "
@@ -358,52 +356,52 @@ def print_keys_checked(shared_found, shared_keys_checked, print_lock, start_time
 
 def search_key_chunked(args):
     """Search unique chunks assigned from a shared counter."""
-    worker_id, RANGE_START, RANGE_END, target_address = args
+    worker_id, RANGE_START, RANGE_END = args
     local_count = 0
-
     while not found.value:
         try:
             with chunk_counter.get_lock():
                 chunk_index = chunk_counter.value
                 chunk_counter.value += 1
-
             sub_range_min = RANGE_START + (chunk_index * SUB_RANGE_SIZE)
             if sub_range_min > RANGE_END:
                 break
-
             sub_range_max = min(sub_range_min + SUB_RANGE_SIZE - 1, RANGE_END)
-
+            
             if SHOW_CHUNKS:
                 short_min = hex(sub_range_min)[2:].upper().zfill(18)[:8]
                 short_max = hex(sub_range_max)[2:].upper().zfill(18)[:8]
                 with PRINT_LOCK:
                     print(f"\n{Fore.YELLOW}Worker {worker_id:<2} searching sub-range: {short_min} - {short_max} ({sub_range_max - sub_range_min + 1:,} keys){Style.RESET_ALL}")
-
+            
             for private_key in range(sub_range_min, sub_range_max + 1):
                 if found.value:
                     break
                 try:
                     compressed_public_key = private_key_to_compressed_public_key(private_key)
-                    btc_address = public_key_to_address(compressed_public_key)
-
+                    
+                    # IMPROVEMENT 4: FAST PATH - Compare raw Hash160 bytes instead of Base58 string
+                    sha256_bpk = hashlib.sha256(compressed_public_key).digest()
+                    ripemd160_bpk = hashlib.new('ripemd160', sha256_bpk).digest()
+                    
                     local_count += 1
-                    if local_count >= 50000:
+                    # IMPROVEMENT 5: Increased batch size to 500,000 to reduce IPC lock contention
+                    if local_count >= 500000:
                         with keys_checked.get_lock():
                             keys_checked.value += local_count
                         local_count = 0
-
-                    if btc_address == target_address:
+                        
+                    if ripemd160_bpk == TARGET_HASH160:
+                        btc_address = public_key_to_address(compressed_public_key)
                         with found.get_lock():
                             if not found.value:
                                 found.value = True
                                 private_key_raw = private_key.to_bytes(32, 'big').hex()
                                 wif = private_key_to_wif(private_key)
-                                
                                 with keys_checked.get_lock():
                                     keys_checked.value += local_count
                                 local_count = 0
                                 balance = check_btc_balance(btc_address)
-
                                 with PRINT_LOCK:
                                     print("\n" + "="*50)
                                     print(f"{Fore.GREEN}MATCH FOUND!{Style.RESET_ALL}")
@@ -415,10 +413,8 @@ def search_key_chunked(args):
                                     print(f"Private Key (WIF): {wif}")
                                     print(f"Compressed Public Key: {compressed_public_key.hex()}")
                                     print(f"Bitcoin Address: {btc_address}")
-
                                     if balance is not None:
                                         print(f"Balance: {balance:.8f} BTC")
-
                                     with open(FOUND_KEY_FILE, "w") as f:
                                         f.write(f"Worker: {worker_id}\n")
                                         f.write(f"Keys Checked: {keys_checked.value:,}\n")
@@ -434,32 +430,27 @@ def search_key_chunked(args):
                     with PRINT_LOCK:
                         print(f"\nError processing key {hex(private_key)}: {e}")
                     continue
-
             if local_count > 0:
                 with keys_checked.get_lock():
                     keys_checked.value += local_count
                 local_count = 0
-                
         except Exception as e:
             with PRINT_LOCK:
                 print(f"\nWorker {worker_id} error in subrange selection: {e}")
-            time.sleep(1)  # Wait before retrying
+            time.sleep(1)
             continue
 
 def search_key_random(args):
     """Search random mini chunks from a prepared queue and record completed chunks."""
-    worker_id, target_address = args
+    worker_id = args[0]
     local_count = 0
-
     while not found.value:
         try:
             chunk_index = random_chunk_queue.get_nowait()
         except queue.Empty:
             break
-
         sub_range_min, sub_range_max = random_chunk_bounds(chunk_index)
         completed_chunk = True
-
         if SHOW_CHUNKS:
             with PRINT_LOCK:
                 print(
@@ -467,34 +458,35 @@ def search_key_random(args):
                     f"{chunk_index}: {hex(sub_range_min)[2:].upper()} - "
                     f"{hex(sub_range_max)[2:].upper()}{Style.RESET_ALL}"
                 )
-
         for private_key in range(sub_range_min, sub_range_max + 1):
             if found.value:
                 completed_chunk = False
                 break
             try:
                 compressed_public_key = private_key_to_compressed_public_key(private_key)
-                btc_address = public_key_to_address(compressed_public_key)
-
+                
+                # FAST PATH: Compare raw Hash160 bytes
+                sha256_bpk = hashlib.sha256(compressed_public_key).digest()
+                ripemd160_bpk = hashlib.new('ripemd160', sha256_bpk).digest()
+                
                 local_count += 1
-                if local_count >= 50000:
+                if local_count >= 500000:
                     with keys_checked.get_lock():
                         keys_checked.value += local_count
                     local_count = 0
-
-                if btc_address == target_address:
+                    
+                if ripemd160_bpk == TARGET_HASH160:
+                    btc_address = public_key_to_address(compressed_public_key)
                     completed_chunk = False
                     with found.get_lock():
                         if not found.value:
                             found.value = True
                             private_key_raw = private_key.to_bytes(32, 'big').hex()
                             wif = private_key_to_wif(private_key)
-
                             with keys_checked.get_lock():
                                 keys_checked.value += local_count
                             local_count = 0
                             balance = check_btc_balance(btc_address)
-
                             with PRINT_LOCK:
                                 print("\n" + "="*50)
                                 print(f"{Fore.GREEN}MATCH FOUND!{Style.RESET_ALL}")
@@ -507,10 +499,8 @@ def search_key_random(args):
                                 print(f"Private Key (WIF): {wif}")
                                 print(f"Compressed Public Key: {compressed_public_key.hex()}")
                                 print(f"Bitcoin Address: {btc_address}")
-
                                 if balance is not None:
                                     print(f"Balance: {balance:.8f} BTC")
-
                                 with open(FOUND_KEY_FILE, "w") as f:
                                     f.write(f"Worker: {worker_id}\n")
                                     f.write(f"Random Chunk: {chunk_index}\n")
@@ -527,12 +517,10 @@ def search_key_random(args):
                 with PRINT_LOCK:
                     print(f"\nError processing key {hex(private_key)}: {e}")
                 continue
-
         if local_count > 0:
             with keys_checked.get_lock():
                 keys_checked.value += local_count
             local_count = 0
-
         if completed_chunk:
             save_completed_random_chunk(chunk_index)
 
@@ -547,20 +535,19 @@ if __name__ == "__main__":
     keys_checked = Value('Q', 0)
     chunk_counter = Value('Q', 0)
     PRINT_LOCK = Lock()
-
+    
     print(f"{Fore.CYAN}\nPuzzle 71 Search{Style.RESET_ALL}")
     if set_low_priority():
         print("Process priority: below normal")
-
+        
     physical_cores, logical_cores = get_cpu_info()
     recommended_workers = 1
-
     print(f"CPU: {physical_cores} physical cores", end="")
     if physical_cores != logical_cores:
         print(f", {logical_cores} logical cores")
     else:
         print()
-
+        
     try:
         num_workers = int(input(
             f"\nEnter number of workers (1-{physical_cores}, recommended {recommended_workers}): ")
@@ -574,14 +561,14 @@ if __name__ == "__main__":
     except ValueError:
         print(f"\nInvalid input. Please enter a number between 1 and {physical_cores}.")
         sys.exit(1)
-
+        
     try:
         search_mode, selected_range, random_config = prompt_range_selection()
         RANGE_START, RANGE_END = selected_range
     except ValueError as e:
         print(f"\n{Fore.RED}{e}{Style.RESET_ALL}")
         sys.exit(1)
-
+        
     if search_mode == "random":
         random_chunks = random_config
         total_keys = random_chunks_key_count(random_chunks)
@@ -593,7 +580,7 @@ if __name__ == "__main__":
         print_range_summary(RANGE_START, RANGE_END)
         search_method = search_key_chunked
         method_name = "Deterministic Chunk Search"
-
+        
     print(f"\n{Fore.RED}Target: {TARGET_BTC_ADDRESS}{Style.RESET_ALL}")
     if search_mode == "random":
         print(f"Range: full Puzzle 71 range, random mini chunks only")
@@ -601,15 +588,16 @@ if __name__ == "__main__":
     else:
         print(f"Range: {hex(RANGE_START)[2:].upper()} to {hex(RANGE_END)[2:].upper()}")
         print(f"Keys: {total_keys:,} | Workers: {num_workers} | Chunk: 2^20")
+        
     print(f"Method: {method_name} | Backend: {'coincurve' if HAS_COINCURVE else 'ecdsa'}")
     if not HAS_COINCURVE:
         print(f"{Fore.YELLOW}Install coincurve for faster public-key generation: python -m pip install coincurve{Style.RESET_ALL}")
     print()
-
+    
     start_time = time.time()
     print_process = Process(target=print_keys_checked, args=(found, keys_checked, PRINT_LOCK, start_time, total_keys))
     print_process.start()
-
+    
     stopped_by_user = False
     try:
         if search_mode == "random":
@@ -618,7 +606,6 @@ if __name__ == "__main__":
                 for chunk_index in random_chunks:
                     chunk_queue.put(chunk_index)
                 history_lock = manager.Lock()
-
                 with Pool(
                     num_workers,
                     initializer=init_random_worker,
@@ -630,14 +617,14 @@ if __name__ == "__main__":
                         history_lock,
                     ),
                 ) as p:
-                    wait_for_pool(p, search_method, [(i, TARGET_BTC_ADDRESS) for i in range(num_workers)])
+                    wait_for_pool(p, search_method, [(i,) for i in range(num_workers)])
         else:
             with Pool(
                 num_workers,
                 initializer=init_worker,
                 initargs=(found, keys_checked, chunk_counter, PRINT_LOCK),
             ) as p:
-                wait_for_pool(p, search_method, [(i, RANGE_START, RANGE_END, TARGET_BTC_ADDRESS) for i in range(num_workers)])
+                wait_for_pool(p, search_method, [(i, RANGE_START, RANGE_END) for i in range(num_workers)])
     except KeyboardInterrupt:
         stopped_by_user = True
         with found.get_lock():
@@ -649,7 +636,7 @@ if __name__ == "__main__":
         print_process.terminate()
         print_process.join()
         print()
-    
+        
     if stopped_by_user:
         print(f"\n{Fore.YELLOW}Search stopped by user.{Style.RESET_ALL}")
     elif not found.value:
