@@ -7,4 +7,4 @@ BTC_Check.py - this code can check the private key and public key of bitcoin add
 
 puzzle71_v2.py - this code focus on puzzle 71 bitcoin address for brute force using CPU
 
-puzzle135_v2.py - by using CPU and with the Pollard's Kangaroo algorithm focus on puzzle 135 address to find the private key
+
