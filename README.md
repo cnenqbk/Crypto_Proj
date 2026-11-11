@@ -7,4 +7,4 @@ BTC_Check.py - this code can check the private key and public key of bitcoin add
 
 puzzle71_v2.py - this code focus on puzzle 71 bitcoin address for brute force using CPU
 
-
+puzzle71GUI.py - a simple GUI for puzzle 71 bitcoin address crack
