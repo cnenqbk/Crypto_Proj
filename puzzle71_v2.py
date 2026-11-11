@@ -10,7 +10,9 @@ import random
 import os
 import queue
 import signal
-from multiprocessing import Pool, Value, Lock, Process, cpu_count, Manager
+from multiprocessing import (
+    Pool, Value, Lock, Process, cpu_count, Manager, freeze_support
+)
 from colorama import Fore, Style, init
 
 # Initialize colorama
@@ -605,8 +607,9 @@ def wait_for_pool(pool, search_method, tasks):
         time.sleep(0.2)
     result.get()
 
-
 if __name__ == "__main__":
+    freeze_support()
+
     found = Value('b', False)
     keys_checked = Value('Q', 0)
     chunk_counter = Value('Q', 0)
@@ -728,3 +731,6 @@ if __name__ == "__main__":
         print(f"\n{Fore.RED}Search completed. Key not found.{Style.RESET_ALL}")
     else:
         print(f"\n{Fore.GREEN}Search completed successfully!{Style.RESET_ALL}")
+
+    print("\n程序运行完成。")
+    input("按 Enter 键关闭窗口...")
